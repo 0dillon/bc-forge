@@ -229,19 +229,65 @@ fn test_burn_from() {
 // ─── Ownership ───────────────────────────────────────────────────────────────
 
 #[test]
-fn test_transfer_ownership() {
+fn test_propose_accept_ownership() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = setup_contract(&env);
+    let admin = init_default(&env, &client);
+    let new_admin = Address::generate(&env);
+
+    client.propose_ownership(&new_admin);
+
+    assert_eq!(BcForgeToken::read_admin(&env), admin);
+    assert_eq!(
+        BcForgeToken::read_pending_admin(&env),
+        Some(new_admin.clone())
+    );
+
+    client.accept_ownership();
+
+    assert_eq!(BcForgeToken::read_admin(&env), new_admin);
+    assert_eq!(BcForgeToken::read_pending_admin(&env), None);
+}
+
+#[test]
+fn test_cancel_ownership_transfer() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = setup_contract(&env);
+    let admin = init_default(&env, &client);
+    let new_admin = Address::generate(&env);
+
+    client.propose_ownership(&new_admin);
+    client.cancel_ownership_transfer();
+
+    assert_eq!(BcForgeToken::read_admin(&env), admin);
+    assert_eq!(BcForgeToken::read_pending_admin(&env), None);
+}
+
+#[test]
+#[should_panic(expected = "no pending ownership transfer")]
+fn test_accept_ownership_without_pending_panics() {
     let env = Env::default();
     env.mock_all_auths();
     let (client, _) = setup_contract(&env);
     let _admin = init_default(&env, &client);
+
+    client.accept_ownership();
+}
+
+#[test]
+fn test_transfer_ownership_alias_proposes() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _) = setup_contract(&env);
+    let admin = init_default(&env, &client);
     let new_admin = Address::generate(&env);
-    let user = Address::generate(&env);
 
     client.transfer_ownership(&new_admin);
 
-    // New admin should be able to mint
-    client.mint(&user, &500);
-    assert_eq!(client.balance(&user), 500);
+    assert_eq!(BcForgeToken::read_admin(&env), admin);
+    assert_eq!(BcForgeToken::read_pending_admin(&env), Some(new_admin));
 }
 
 // ─── Pause / Unpause ─────────────────────────────────────────────────────────

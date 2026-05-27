@@ -26,6 +26,8 @@ use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, St
 pub enum DataKey {
     /// The contract admin address.
     Admin,
+    /// Pending admin address for a two-step ownership transfer.
+    PendingAdmin,
     /// Spending allowance: (owner, spender) → amount.
     Allowance(Address, Address),
     /// Token balance for an address.
@@ -124,6 +126,16 @@ impl BcForgeToken {
             .get(&DataKey::Admin)
             .expect("contract not initialized")
     }
+
+    /// Reads the pending admin address, if any.
+    fn read_pending_admin(env: &Env) -> Option<Address> {
+        env.storage().instance().get(&DataKey::PendingAdmin)
+    }
+
+    /// Clears any pending ownership transfer.
+    fn clear_pending_admin(env: &Env) {
+        env.storage().instance().remove(&DataKey::PendingAdmin);
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -183,16 +195,50 @@ impl BcForgeToken {
         events::emit_mint(&env, &admin, &to, amount, balance, supply);
     }
 
-    /// Transfers the admin role to a new address. Current admin-only.
+    /// Proposes a new admin address. Current admin-only.
     ///
     /// # Arguments
     /// * `new_admin` - The address to receive admin privileges.
-    pub fn transfer_ownership(env: Env, new_admin: Address) {
+    pub fn propose_ownership(env: Env, new_admin: Address) {
         let admin = Self::read_admin(&env);
         admin.require_auth();
 
-        env.storage().instance().set(&DataKey::Admin, &new_admin);
-        events::emit_ownership_transferred(&env, &admin, &new_admin);
+        env.storage()
+            .instance()
+            .set(&DataKey::PendingAdmin, &new_admin);
+        events::emit_ownership_proposed(&env, &admin, &new_admin);
+    }
+
+    /// Accepts a pending ownership transfer. Proposed admin only.
+    pub fn accept_ownership(env: Env) {
+        let pending_admin = Self::read_pending_admin(&env).expect("no pending ownership transfer");
+        pending_admin.require_auth();
+
+        let old_admin = Self::read_admin(&env);
+        env.storage()
+            .instance()
+            .set(&DataKey::Admin, &pending_admin);
+        Self::clear_pending_admin(&env);
+
+        events::emit_ownership_transferred(&env, &old_admin, &pending_admin);
+    }
+
+    /// Cancels a pending ownership transfer. Current admin only.
+    pub fn cancel_ownership_transfer(env: Env) {
+        let admin = Self::read_admin(&env);
+        admin.require_auth();
+
+        let pending_admin = Self::read_pending_admin(&env).expect("no pending ownership transfer");
+        Self::clear_pending_admin(&env);
+
+        events::emit_ownership_transfer_cancelled(&env, &admin, &pending_admin);
+    }
+
+    /// Transfers the admin role to a new address.
+    ///
+    /// This is a backwards-compatible alias for `propose_ownership`.
+    pub fn transfer_ownership(env: Env, new_admin: Address) {
+        Self::propose_ownership(env, new_admin);
     }
 
     /// Returns the total token supply.
@@ -219,7 +265,8 @@ impl BcForgeToken {
         let admin = Self::read_admin(&env);
         admin.require_auth();
 
-        env.deployer().update_current_contract_wasm(new_wasm_hash.clone());
+        env.deployer()
+            .update_current_contract_wasm(new_wasm_hash.clone());
         events::emit_upgrade(&env, &admin, &new_wasm_hash);
     }
 
@@ -233,7 +280,8 @@ impl BcForgeToken {
         let admin = Self::read_admin(&env);
         admin.require_auth();
 
-        let old_name = env.storage()
+        let old_name = env
+            .storage()
             .instance()
             .get(&DataKey::Name)
             .unwrap_or_else(|| String::from_str(&env, "bc-forge"));
@@ -247,7 +295,8 @@ impl BcForgeToken {
         let admin = Self::read_admin(&env);
         admin.require_auth();
 
-        let old_symbol = env.storage()
+        let old_symbol = env
+            .storage()
             .instance()
             .get(&DataKey::Symbol)
             .unwrap_or_else(|| String::from_str(&env, "SFG"));
