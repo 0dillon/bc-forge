@@ -143,6 +143,12 @@ pub fn has_admin(env: &Env) -> bool {
     has
 }
 
+/// Grants a role to the specified address.
+///
+/// Only the contract admin can grant roles.
+///
+/// # Panics
+/// Panics if the contract is not initialized or if the caller is not the admin.
 pub fn grant_role(env: &Env, role: Role, address: &Address) {
     let admin = if has_admin(env) {
         let admin = get_admin(env);
