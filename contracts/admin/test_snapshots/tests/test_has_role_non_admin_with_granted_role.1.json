@@ -6,7 +6,6 @@
   "auth": [
     [],
     [],
-    [],
     [
       [
         "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
@@ -22,7 +21,7 @@
                 {
                   "vec": [
                     {
-                      "symbol": "Pauser"
+                      "symbol": "Minter"
                     }
                   ]
                 },
@@ -36,6 +35,8 @@
         }
       ]
     ],
+    [],
+    [],
     []
   ],
   "ledger": {
@@ -119,7 +120,7 @@
                 {
                   "vec": [
                     {
-                      "symbol": "Pauser"
+                      "symbol": "Minter"
                     }
                   ]
                 },
@@ -146,7 +147,7 @@
                     {
                       "vec": [
                         {
-                          "symbol": "Pauser"
+                          "symbol": "Minter"
                         }
                       ]
                     },
@@ -288,12 +289,12 @@
                 {
                   "vec": [
                     {
-                      "symbol": "Pauser"
+                      "symbol": "SuperAdmin"
                     }
                   ]
                 },
                 {
-                  "bool": true
+                  "bool": false
                 }
               ]
             }
